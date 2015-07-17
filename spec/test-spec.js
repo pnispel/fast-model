@@ -1,7 +1,7 @@
 import Model from '../src/model';
 import assert from 'assert';
 
-describe('Model set/get', function () {
+describe('Model set', function () {
     var model = null;
 
     beforeEach(function () {
@@ -55,7 +55,7 @@ describe('Model set/get', function () {
     it('should set nested arrays', function () {
         model.set('test.foo.arr', [1,2,3]);
 
-        console.log(model._data);
+        console.log('adata', model._data);
         var data = model._data.test.foo.arr;
         var isArr = Object.prototype.toString.call( data ) === '[object Array]';
 

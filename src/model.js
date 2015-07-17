@@ -25,13 +25,6 @@ class Model {
         if (lastKey === null) {
             parent = value;
         } else {
-            if (!parent && lastKey) {
-                if (isNaN(lastKey)) {
-                    parent = {};
-                } else {
-                    parent = [];
-                }
-            }
             parent[lastKey] = value;
         }
     }
@@ -64,26 +57,21 @@ class Model {
  * @param {object} obj - the recusively built object (undefined at first)
  */
 function _walkToParent (keySplits, obj) {
-    // if (!keySplits || keySplits.length === 0) return obj;
-
-    var nextKey = keySplits.splice(0, 1)[0];
-
-    console.log('walk', obj, keySplits, nextKey, (keySplits.length === 0 && nextKey !== undefined));
-
-    if (!obj && nextKey) {
-        if (isNaN(nextKey)) {
-            obj = {};
-        } else {
-            obj = [];
-        }
-    }
-
     // this is the object we need
-    if (keySplits.length === 0 && nextKey) {
-        console.log('final', obj, nextKey);
-        console.log('------');
+    if (keySplits.length === 1) {
         return obj;
     } else {
+        var nextKey = keySplits.splice(0, 1)[0];
+        var twoKeys = keySplits.slice(0,1)[0];
+
+        if (!obj[nextKey]) {
+            if (twoKeys && !isNaN(twoKeys)) {
+                obj[nextKey] = [];
+            } else {
+                obj[nextKey] = {};
+            }
+        }
+
         return _walkToParent(keySplits, obj[nextKey]);
     }
 }

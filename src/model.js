@@ -1,6 +1,13 @@
+import Emitter from './emitter';
+import * as util from './util';
+import {runDiff} from './diff';
+
 /* -------------------------------------------------------------------------- */
-class Model {
+
+class Model extends Emitter {
     constructor () {
+        super();
+
         this._data = {};
     }
 
@@ -11,22 +18,40 @@ class Model {
      * @param {object} value - the value to be set
      */
     set (key, value) {
-        if (key !== null && typeof key === 'object') {
+        if (util.isObject(key)) {
             this._data = key;
 
             return;
         }
+
+        if (!util.isString(key)) return;
 
         var keySplits = key.split('.');
 
         var lastKey = keySplits[keySplits.length - 1];
         var parent = _walkToParent(keySplits, this._data);
 
+        var diff;
+
         if (lastKey === null) {
+            diff = runDiff(parent, value);
             parent = value;
         } else {
+            diff = runDiff(parent[lastKey], value);
             parent[lastKey] = value;
         }
+
+        diff.removed.forEach(function (el) {
+            this.trigger('removed:' + key + el.path.join('.'), el.val);
+        }.bind(this));
+
+        diff.added.forEach(function (el) {
+            this.trigger('added:' + key + el.path.join('.'), el.val);
+        }.bind(this));
+
+        diff.changed.forEach(function (el) {
+            this.trigger('changed:' + key + el.path.join('.'), el.val);
+        }.bind(this));
     }
 
     /**
@@ -35,6 +60,9 @@ class Model {
      * @param {String} key - the path to the object you'd like
      */
     get (key) {
+        if (!key) return Object.freeze(this._data);
+        if (!util.isString(key)) return;
+
         var keySplits = key.split('.');
         var lastKey = keySplits[keySplits.length - 1];
 

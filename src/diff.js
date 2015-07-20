@@ -118,6 +118,7 @@ export function runDiff (one={}, two={}) {
                 val: val
             });
         } else {
+            changedEl.splice(-1);
             var obj = two;
 
             for (var j = 0; j < changedEl.length; j++) {

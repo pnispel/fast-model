@@ -41,17 +41,44 @@ class Model extends Emitter {
             parent[lastKey] = value;
         }
 
-        diff.removed.forEach(function (el) {
-            this.trigger('removed:' + key + el.path.join('.'), el.val);
-        }.bind(this));
+        diff.removed.forEach((function (el) {
+            var newKey = key.slice(-1) === '.' ? key : key + '.';
 
-        diff.added.forEach(function (el) {
-            this.trigger('added:' + key + el.path.join('.'), el.val);
-        }.bind(this));
+            this.trigger('removed:' + newKey + el);
+        }).bind(this));
 
-        diff.changed.forEach(function (el) {
-            this.trigger('changed:' + key + el.path.join('.'), el.val);
-        }.bind(this));
+        diff.added.forEach((function (el) {
+            var last = el.path.splice(-1)[0];
+            var newKey = key.replace(/\.$/, '');
+
+            newKey = (el.path.length === 0)
+                        ? key : key + '.';
+
+            this.trigger(
+                'added:' + newKey + el.path.join('.'), last, el.val);
+        }).bind(this));
+
+        diff.changed.forEach((function (el) {
+            var newKey = key.slice(-1) === '.' ? key : key + '.';
+
+            this.trigger('changed:' + newKey + el.path.join('.'), el.val);
+        }).bind(this));
+    }
+
+    getMutable (key, createDuringWalk=false) {
+        if (!key) return JSON.parse(JSON.stringify(this._data));
+        if (!util.isString(key)) return;
+
+        var keySplits = key.split('.');
+        var lastKey = keySplits[keySplits.length - 1];
+
+        var parent = _walkToParent(keySplits, this._data, createDuringWalk);
+
+        if (parent === false) return false;
+
+        var ret = (lastKey === null) ? parent : parent[lastKey];
+
+        return JSON.parse(JSON.stringify(ret));
     }
 
     /**
@@ -59,22 +86,11 @@ class Model extends Emitter {
      *
      * @param {String} key - the path to the object you'd like
      */
-    get (key) {
-        if (!key) return Object.freeze(this._data);
-        if (!util.isString(key)) return;
+    get (key, createDuringWalk=false) {
+        var mutableValue = this.getMutable(key, createDuringWalk);
 
-        var keySplits = key.split('.');
-        var lastKey = keySplits[keySplits.length - 1];
-
-        var parent = _walkToParent(keySplits, this._data);
-
-        var ret = (lastKey === null) ? parent : parent[lastKey];
-
-        if (ret !== null && typeof ret === 'object') {
-            return Object.freeze(ret);
-        }
-
-        return Object.freeze(ret);
+        return util.isObject(mutableValue) ?
+            Object.freeze(mutableValue) : mutableValue;
     }
 }
 
@@ -84,7 +100,7 @@ class Model extends Emitter {
  * @param {String} key - the path to the object you'd like
  * @param {object} obj - the recusively built object (undefined at first)
  */
-function _walkToParent (keySplits, obj) {
+function _walkToParent (keySplits, obj, createDuringWalk) {
     // this is the object we need
     if (keySplits.length === 1) {
         return obj;
@@ -92,15 +108,17 @@ function _walkToParent (keySplits, obj) {
         var nextKey = keySplits.splice(0, 1)[0];
         var twoKeys = keySplits.slice(0,1)[0];
 
-        if (!obj[nextKey]) {
+        if (!obj[nextKey] && createDuringWalk) {
             if (twoKeys && !isNaN(twoKeys)) {
                 obj[nextKey] = [];
             } else {
                 obj[nextKey] = {};
             }
+        } else if (!obj[nextKey]) {
+            return false;
         }
 
-        return _walkToParent(keySplits, obj[nextKey]);
+        return _walkToParent(keySplits, obj[nextKey], createDuringWalk);
     }
 }
 

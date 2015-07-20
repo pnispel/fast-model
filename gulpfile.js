@@ -11,8 +11,9 @@ var mochify = require('mochify');
 // .pipe(jasmine());
 
 function compile(watch) {
-  var bundler = watchify(browserify('./src/model.js', {
-    debug: true
+  var bundler = watchify(browserify('./src/index.js', {
+    debug: true,
+    standalone: 'Fast'
   }).transform(babel));
 
   function rebundle() {
@@ -46,9 +47,7 @@ function docs () {
 }
 
 function test (done) {
-  var bundler = mochify('./spec/**/*_spec.js', {
-    node: true
-  }).transform(babel);
+  var bundler = mochify('./spec/**/*_spec.js', {}).transform(babel);
 
   bundler.bundle();
 }

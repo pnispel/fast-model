@@ -5,6 +5,11 @@ import chai from 'chai';
 var expect = chai.expect;
 var assert = chai.assert;
 
+/*
+ * TODO:
+ * make sure freeze only happens on objects
+ */
+
 describe('Model get', function () {
     var model = null;
     var data = {
@@ -39,14 +44,14 @@ describe('Model get', function () {
     });
 
     it('should return nested data', function () {
-        var data = model.get('nestedArr.2.another');
+        var data = model.get('nestedArr.2.another', true);
 
         assert(util.isArray(data));
         expect(data.length).to.equal(3);
     });
 
     it('should return data that is deep', function () {
-        var data = model.get('another');
+        var data = model.get('another', true);
 
         assert(util.isObject(data));
         assert(data.is);

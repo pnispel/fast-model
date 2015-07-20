@@ -11,6 +11,11 @@ import u from 'util';
 var expect = chai.expect;
 var assert = chai.assert;
 
+/*
+ * TODO:
+ * check values with dots in them (html)
+ */
+
 describe('Diff', function () {
     const template = `
         {
@@ -72,7 +77,6 @@ describe('Diff', function () {
         var start = now();
         let ret = runDiff(json1, newjson);
         var end = now();
-        console.log(end - start);
 
         // console.log(json1, newjson);
         // console.log('\n');

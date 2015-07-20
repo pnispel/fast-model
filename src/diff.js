@@ -1,6 +1,7 @@
 import {indexOf, filter, isObject, isArray} from '../src/util';
+import util from 'util';
 
-function getPaths (toot, path='', pathsArr=[]) {
+function getPaths (toot, path='', pathsArr=[], values={}) {
     var keys = Object.keys(toot);
     var l = keys.length;
 
@@ -9,17 +10,18 @@ function getPaths (toot, path='', pathsArr=[]) {
         var newPath = path + key + '.';
 
         if (isObject(toot[key])) {
-            pathsArr.push(newPath);
+            pathsArr.push(newPath.replace(/\.$/, ''));
 
-            pathsArr = getPaths(toot[key], newPath, pathsArr);
+            getPaths(toot[key], newPath, pathsArr, values);
         } else {
-            var valPath = path + key + '.';
+            var valPath = path + key;
             pathsArr.push(valPath);
-            pathsArr.push(valPath + toot[key]);
+            // pathsArr.push(valPath + toot[key]);
+            values[valPath] = toot[key];
         }
     }
 
-    return pathsArr;
+    return [pathsArr, values];
 }
 
 /*
@@ -52,6 +54,7 @@ export function runDiff (one={}, two={}) {
         one = {}
     } else if (!isObject(one) && !isObject(two) ||
                 isObject(one) && !isObject(two)) {
+
         return {
             added: [],
             removed: [],
@@ -63,8 +66,10 @@ export function runDiff (one={}, two={}) {
         };
     }
 
-    var ret1 = getPaths(one);
-    var ret2 = getPaths(two);
+    var ret1, ret2, leafs1, leafs2;
+
+    var [ret1, leafs1] = getPaths(one);
+    var [ret2, leafs2] = getPaths(two);
 
     var oldIntersectNew = filter(ret1, function(id) {
         return (indexOf(ret2, id) !== -1);
@@ -79,8 +84,7 @@ export function runDiff (one={}, two={}) {
     });
 
     var removed = filter(ret1, function(id) {
-        return (indexOf(oldIntersectNew, id) === -1 &&
-                id.slice(-1) === '.');
+        return (indexOf(oldIntersectNew, id) === -1);
     });
 
     var moved = filter(oldIntersectNew, function (id, i) {
@@ -91,7 +95,7 @@ export function runDiff (one={}, two={}) {
         return indexOf(removed, id) === -1;
     });
 
-    var movedRet = [];
+    var movedRet = [], retAdd = [];
 
     moved.forEach(function (id) {
         var oldIndex = indexOf(oldWithoutRemoved, id);
@@ -103,40 +107,64 @@ export function runDiff (one={}, two={}) {
     findShortestCommonSubstrings(added);
     findShortestCommonSubstrings(removed);
 
-    var changed = [];
-    var retAdd = [];
-
-    for (var i = (added.length - 1); i >= 0; i--) {
+    for (var i = added.length - 1; i >= 0; i--) {
         var el = added[i];
         var changedEl = added.splice(i, 1)[0].split('.');
 
-        if (el.slice(-1) !== '.') {
-            var val = changedEl.splice(-1)[0];
+        var obj = two;
 
-            changed.push({
-                path: changedEl,
-                val: val
-            });
-        } else {
-            changedEl.splice(-1);
-            var obj = two;
-
-            for (var j = 0; j < changedEl.length; j++) {
-                if (changedEl[j] !== '') {
-                    obj = obj[changedEl[j]];
-                }
+        for (var j = 0; j < changedEl.length; j++) {
+            if (changedEl[j] !== '') {
+                obj = obj[changedEl[j]];
             }
-
-            retAdd.push({
-                path: changedEl,
-                val: obj
-            });
         }
+
+        retAdd.push({
+            key: changedEl.splice(-1),
+            path: changedEl,
+            val: obj
+        });
     }
+
+    var retRemoved = removed.map(function (obj) {
+        var path = obj.split('.');
+
+        return {
+            key: path.splice(-1),
+            path: path,
+        };
+    });
+
+    var leafKeys = Object.keys(leafs2);
+    var changed = leafKeys.map(function (key) {
+        var newVal = leafs2[key];
+        var oldVal = leafs1[key];
+
+        if ((oldVal === undefined) || (oldVal === newVal)) return;
+
+        var parentPath = key.split('.');
+        var attrKey = parentPath.splice(-1);
+
+        return {
+            path: parentPath,
+            key: attrKey,
+            oldVal: oldVal,
+            newVal: newVal
+        };
+    }).filter(function (leaf) {
+        return leaf;
+    });
+
+    console.log('cahnge', util.inspect({
+        added: retAdd,
+        removed: retRemoved,
+        moved: moved,
+        changed: changed
+    }, {showHidden: false, depth: null}));
 
     return {
         added: retAdd,
-        removed: removed,
+        removed: retRemoved,
         moved: moved,
         changed: changed
     }

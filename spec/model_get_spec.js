@@ -40,7 +40,7 @@ describe('Model get', function () {
 
         expect(function () {
             ret.a = 'new value';
-        }).to.throw('Can\'t add property a, object is not extensible');
+        }).to.throw();
     });
 
     it('should return nested data', function () {
@@ -59,6 +59,6 @@ describe('Model get', function () {
 
         expect(function () {
             data.is = 'new value';
-        }).to.throw('Cannot assign to read only property \'is\' of #<Object>');
+        }).to.throw();
     });
 });

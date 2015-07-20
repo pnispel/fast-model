@@ -17,7 +17,9 @@ class Model extends Emitter {
      * @param {String} key - the path to the object you'd like
      * @param {object} value - the value to be set
      */
-    set (key, value) {
+
+     // TODO: add "silent" and allow setting root to do diff
+    set (key, value, createDuringWalk=false) {
         if (util.isObject(key)) {
             this._data = key;
 
@@ -29,7 +31,7 @@ class Model extends Emitter {
         var keySplits = key.split('.');
 
         var lastKey = keySplits[keySplits.length - 1];
-        var parent = _walkToParent(keySplits, this._data);
+        var parent = _walkToParent(keySplits, this._data, createDuringWalk);
 
         var diff;
 
@@ -42,37 +44,56 @@ class Model extends Emitter {
         }
 
         diff.removed.forEach((function (el) {
-            var newKey = key.slice(-1) === '.' ? key : key + '.';
+            var lastPathIsNum = !isNaN(el.path.slice(-1)[0]);
 
-            this.trigger('removed:' + newKey + el);
+            this.trigger('removed:' +
+                keySplits.concat(el.path).join('.'), el);
+
+            if (lastPathIsNum) {
+                el.key.splice(0,0, el.path.splice(-1));
+            }
+
+            this.trigger('removed:' +
+                keySplits.concat(el.path).join('.'), el);
         }).bind(this));
 
         diff.added.forEach((function (el) {
-            var last = el.path.splice(-1)[0];
-            var newKey = key.replace(/\.$/, '');
+            var lastPathIsNum = !isNaN(el.path.slice(-1)[0]);
 
-            newKey = (el.path.length === 0)
-                        ? key : key + '.';
+            this.trigger('added:' +
+                keySplits.concat(el.path).join('.'), el);
 
-            this.trigger(
-                'added:' + newKey + el.path.join('.'), last, el.val);
+            if (lastPathIsNum) {
+                el.key.splice(0,0, el.path.splice(-1));
+            }
+
+            this.trigger('added:' +
+                keySplits.concat(el.path).join('.'), el);
         }).bind(this));
 
         diff.changed.forEach((function (el) {
-            var newKey = key.slice(-1) === '.' ? key : key + '.';
+            var lastPathIsNum = !isNaN(el.path.slice(-1)[0]);
 
-            this.trigger('changed:' + newKey + el.path.join('.'), el.val);
+            this.trigger('changed:' +
+                keySplits.concat(el.path).join('.'), el);
+
+            if (lastPathIsNum) {
+                el.key.splice(0,0, el.path.splice(-1));
+            }
+
+            this.trigger('changed:' +
+                keySplits.concat(el.path).join('.'), el);
         }).bind(this));
     }
 
-    getMutable (key, createDuringWalk=false) {
+    getMutable (key) {
         if (!key) return JSON.parse(JSON.stringify(this._data));
         if (!util.isString(key)) return;
 
         var keySplits = key.split('.');
         var lastKey = keySplits[keySplits.length - 1];
 
-        var parent = _walkToParent(keySplits, this._data, createDuringWalk);
+        var parent = _walkToParent(keySplits, this._data);
 
         if (parent === false) return false;
 
@@ -86,8 +107,8 @@ class Model extends Emitter {
      *
      * @param {String} key - the path to the object you'd like
      */
-    get (key, createDuringWalk=false) {
-        var mutableValue = this.getMutable(key, createDuringWalk);
+    get (key) {
+        var mutableValue = this.getMutable(key);
 
         return util.isObject(mutableValue) ?
             Object.freeze(mutableValue) : mutableValue;
@@ -100,7 +121,7 @@ class Model extends Emitter {
  * @param {String} key - the path to the object you'd like
  * @param {object} obj - the recusively built object (undefined at first)
  */
-function _walkToParent (keySplits, obj, createDuringWalk) {
+function _walkToParent (keySplits, obj, createDuringWalk=false) {
     // this is the object we need
     if (keySplits.length === 1) {
         return obj;

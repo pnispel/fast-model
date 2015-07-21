@@ -1,6 +1,6 @@
 import Emitter from './emitter';
 import * as util from './util';
-import {runDiff} from './diff';
+import {diff} from './diff';
 
 /* -------------------------------------------------------------------------- */
 
@@ -33,57 +33,57 @@ class Model extends Emitter {
         var lastKey = keySplits[keySplits.length - 1];
         var parent = _walkToParent(keySplits, this._data, createDuringWalk);
 
-        var diff;
+        var changes;
 
         if (lastKey === null) {
-            diff = runDiff(parent, value);
+            // changes = diff(parent, value);
             parent = value;
         } else {
-            diff = runDiff(parent[lastKey], value);
+            // changes = diff(parent[lastKey], value);
             parent[lastKey] = value;
         }
 
-        diff.removed.forEach((function (el) {
-            var lastPathIsNum = !isNaN(el.path.slice(-1)[0]);
+        // changes.removed.forEach((function (el) {
+        //     var lastPathIsNum = !isNaN(el.path.slice(-1)[0]);
 
-            this.trigger('removed:' +
-                keySplits.concat(el.path).join('.'), el);
+        //     this.trigger('removed:' +
+        //         keySplits.concat(el.path).join('.'), el);
 
-            if (lastPathIsNum) {
-                el.key.splice(0,0, el.path.splice(-1));
-            }
+        //     if (lastPathIsNum) {
+        //         el.key.splice(0,0, el.path.splice(-1));
+        //     }
 
-            this.trigger('removed:' +
-                keySplits.concat(el.path).join('.'), el);
-        }).bind(this));
+        //     this.trigger('removed:' +
+        //         keySplits.concat(el.path).join('.'), el);
+        // }).bind(this));
 
-        diff.added.forEach((function (el) {
-            var lastPathIsNum = !isNaN(el.path.slice(-1)[0]);
+        // changes.added.forEach((function (el) {
+        //     var lastPathIsNum = !isNaN(el.path.slice(-1)[0]);
 
-            this.trigger('added:' +
-                keySplits.concat(el.path).join('.'), el);
+        //     this.trigger('added:' +
+        //         keySplits.concat(el.path).join('.'), el);
 
-            if (lastPathIsNum) {
-                el.key.splice(0,0, el.path.splice(-1));
-            }
+        //     if (lastPathIsNum) {
+        //         el.key.splice(0,0, el.path.splice(-1));
+        //     }
 
-            this.trigger('added:' +
-                keySplits.concat(el.path).join('.'), el);
-        }).bind(this));
+        //     this.trigger('added:' +
+        //         keySplits.concat(el.path).join('.'), el);
+        // }).bind(this));
 
-        diff.changed.forEach((function (el) {
-            var lastPathIsNum = !isNaN(el.path.slice(-1)[0]);
+        // changes.changed.forEach((function (el) {
+        //     var lastPathIsNum = !isNaN(el.path.slice(-1)[0]);
 
-            this.trigger('changed:' +
-                keySplits.concat(el.path).join('.'), el);
+        //     this.trigger('changed:' +
+        //         keySplits.concat(el.path).join('.'), el);
 
-            if (lastPathIsNum) {
-                el.key.splice(0,0, el.path.splice(-1));
-            }
+        //     if (lastPathIsNum) {
+        //         el.key.splice(0,0, el.path.splice(-1));
+        //     }
 
-            this.trigger('changed:' +
-                keySplits.concat(el.path).join('.'), el);
-        }).bind(this));
+        //     this.trigger('changed:' +
+        //         keySplits.concat(el.path).join('.'), el);
+        // }).bind(this));
     }
 
     getMutable (key) {

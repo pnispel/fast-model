@@ -1,171 +1,168 @@
 import {indexOf, filter, isObject, isArray} from '../src/util';
-import util from 'util';
+import BiMap from 'bimap';
+import XXH from 'xxhashjs';
 
-function getPaths (toot, path='', pathsArr=[], values={}) {
-    var keys = Object.keys(toot);
-    var l = keys.length;
+function bfs (tree, cb) {
+    var h = XXH(JSON.stringify(tree), 0xABCD).toString(16).toString(16);
 
-    for (var i = 0; i < l; i++) {
-        var key = keys[i];
-        var newPath = path + key + '.';
+    var queue = [{
+        val: tree,
+        path: [],
+        signature: '',
+        hash: h
+    }];
 
-        if (isObject(toot[key])) {
-            pathsArr.push(newPath.replace(/\.$/, ''));
+    var levels = [];
+    var tillNextLevel = 0;
+    var nextLevelBuffer = 0;
+    var level = [];
 
-            getPaths(toot[key], newPath, pathsArr, values);
-        } else {
-            var valPath = path + key;
-            pathsArr.push(valPath);
-            // pathsArr.push(valPath + toot[key]);
-            values[valPath] = toot[key];
+    do {
+        var item = queue.shift();
+
+        cb(item)
+
+        level.push(item);
+
+        var type = typeof item.val;
+        var keys = [];
+
+        if (((type === 'object' || type === 'function') && !!item.val)) {
+            keys = Object.keys(item.val);
+
+            nextLevelBuffer += keys.length;
         }
-    }
 
-    return [pathsArr, values];
+        if (tillNextLevel <= 0) {
+            tillNextLevel = nextLevelBuffer;
+            nextLevelBuffer = 0;
+
+            levels.push(level.slice(0));
+            level.length = 0;
+        }
+
+        for (var i = 0; i < keys.length; i++) {
+            var key = keys[i];
+            var val = item.val[key];
+            var pathCopy = item.path.slice(0);
+            var signature = pathCopy.join('.');
+            var hash = XXH(JSON.stringify(val), 0xABCD).toString(16).toString(16);
+
+            pathCopy.push(key);
+
+            queue.push({
+                path: Object.freeze(pathCopy),
+                val: val,
+                signature: signature,
+                hash: hash
+            });
+        }
+
+        tillNextLevel--;
+    } while (queue.length !== 0)
+
+    return levels;
 }
 
-/*
- * change non-leaf nodes to include a '.' at the end
- * leaf nodes in 'added' are the 'changed' nodes
- */
+export function diff (oldVal={}, newVal={}) {
+    var signatureHashTable = {};
+    var mapping = new BiMap;
+    var deleted = [];
+    var moved = [];
+    var added = [];
 
-function findShortestCommonSubstrings (vals) {
-    if (!vals.length) return;
+    function addChildrenToMap (oldItem, newItem, map) {
+        var oldElKeys, newElKeys;
+        var oldItemPath = oldItem.path.length ? oldItem.path.join('.') : 'root';
+        var newItemPath = newItem.path.length ? newItem.path.join('.') : 'root';
 
-    vals.sort(function (a, b) {
-        return (a.length < b.length) ? -1 :
-               (a.length === b.length) ? 0 : 1;
+        map.push(oldItemPath, newItemPath);
+
+        if (!isObject(oldItem.val)) return;
+
+        var keys = Object.keys(oldItem.val);
+
+        for (var i = 0; i < keys.length; i++) {
+            var key = keys[i];
+
+            var oldVal = oldItem.val[key];
+            var newVal = newItem.val[key];
+
+            var oldPath = oldItem.path.slice(0);
+            var newPath = newItem.path.slice(0);
+
+            oldPath.push(key);
+            newPath.push(key);
+
+            addChildrenToMap({
+                path: Object.freeze(oldPath),
+                val: oldVal
+            }, {
+                path: Object.freeze(newPath),
+                val: newVal
+            }, map);
+        }
+
+    }
+
+    bfs(newVal, function (el) {
+        signatureHashTable[el.signature] =
+            signatureHashTable[el.signature] || [];
+
+        signatureHashTable[el.signature].push(el);
     });
 
-    for (var i = (vals.length - 1); i >= 0; i--) {
-        var regex = new RegExp(vals[i]);
+    bfs(oldVal, function (oldEl) {
+        var sameParentElements = signatureHashTable[oldEl.signature];
+        var bestElementMap = new BiMap;
 
-        for (var j = i; j < vals.length; j++) {
-            if ((vals[i] !== vals[j]) && regex.test(vals[j])) {
-                vals.splice(j, 1);
-                j--;
+        for (var i = 0; i < sameParentElements.length; i++) {
+            var newEl = sameParentElements[i];
+
+            if (oldEl.hash === newEl.hash &&
+                !mapping.key(oldEl.path.join('.'))) {
+                addChildrenToMap(oldEl, newEl, mapping);
+
+                if (oldEl.path.join('.') !== newEl.path.join('.')) {
+                    moved.push([oldEl, newEl]);
+                }
+
+                break;
+            }
+        }
+    });
+
+    bfs(oldVal, function (el) {
+        if (!mapping.key(el.path.join('.'))) {
+            deleted.push(el);
+        }
+    });
+
+    bfs(newVal, function (el) {
+        var path = el.path.length ? el.path.join('.') : 'root';
+        if (!mapping.val(path)) {
+            added.push(el);
+        }
+    });
+
+    var replaced = [];
+
+    for (var i = (added.length - 1); i >= 0; i--) {
+        for (var j = (deleted.length - 1); j >= 0; j--) {
+            if (added[i].signature === deleted[j].signature) {
+                var newEl = added.splice(i, 1)[0];
+                var oldEl = deleted.splice(j, 1)[0];
+
+                replaced.push([oldEl, newEl]);
+                i--;
             }
         }
     }
-}
-
-export function runDiff (one={}, two={}) {
-    if (!isObject(one) && isObject(two)) {
-        one = {}
-    } else if (!isObject(one) && !isObject(two) ||
-                isObject(one) && !isObject(two)) {
-
-        return {
-            added: [],
-            removed: [],
-            moved: [],
-            changed: [{
-                path: [],
-                val: two
-            }]
-        };
-    }
-
-    var ret1, ret2, leafs1, leafs2;
-
-    var [ret1, leafs1] = getPaths(one);
-    var [ret2, leafs2] = getPaths(two);
-
-    var oldIntersectNew = filter(ret1, function(id) {
-        return (indexOf(ret2, id) !== -1);
-    });
-
-    var newIntersectOld = filter(ret2, function(id) {
-        return (indexOf(ret1, id) !== -1);
-    });
-
-    var added = filter(ret2, function(id) {
-        return (indexOf(oldIntersectNew, id) === -1);
-    });
-
-    var removed = filter(ret1, function(id) {
-        return (indexOf(oldIntersectNew, id) === -1);
-    });
-
-    var moved = filter(oldIntersectNew, function (id, i) {
-        return indexOf(newIntersectOld, id) !== i;
-    });
-
-    var oldWithoutRemoved = filter(ret1, function (id) {
-        return indexOf(removed, id) === -1;
-    });
-
-    var movedRet = [], retAdd = [];
-
-    moved.forEach(function (id) {
-        var oldIndex = indexOf(oldWithoutRemoved, id);
-        var newIndex = indexOf(newIntersectOld, id);
-
-        moved.push([oldIndex, newIndex]);
-    });
-
-    findShortestCommonSubstrings(added);
-    findShortestCommonSubstrings(removed);
-
-    for (var i = added.length - 1; i >= 0; i--) {
-        var el = added[i];
-        var changedEl = added.splice(i, 1)[0].split('.');
-
-        var obj = two;
-
-        for (var j = 0; j < changedEl.length; j++) {
-            if (changedEl[j] !== '') {
-                obj = obj[changedEl[j]];
-            }
-        }
-
-        retAdd.push({
-            key: changedEl.splice(-1),
-            path: changedEl,
-            val: obj
-        });
-    }
-
-    var retRemoved = removed.map(function (obj) {
-        var path = obj.split('.');
-
-        return {
-            key: path.splice(-1),
-            path: path,
-        };
-    });
-
-    var leafKeys = Object.keys(leafs2);
-    var changed = leafKeys.map(function (key) {
-        var newVal = leafs2[key];
-        var oldVal = leafs1[key];
-
-        if ((oldVal === undefined) || (oldVal === newVal)) return;
-
-        var parentPath = key.split('.');
-        var attrKey = parentPath.splice(-1);
-
-        return {
-            path: parentPath,
-            key: attrKey,
-            oldVal: oldVal,
-            newVal: newVal
-        };
-    }).filter(function (leaf) {
-        return leaf;
-    });
-
-    console.log('cahnge', util.inspect({
-        added: retAdd,
-        removed: retRemoved,
-        moved: moved,
-        changed: changed
-    }, {showHidden: false, depth: null}));
 
     return {
-        added: retAdd,
-        removed: retRemoved,
-        moved: moved,
-        changed: changed
-    }
+        added: added,
+        deleted: deleted,
+        replaced: replaced,
+        moved: moved
+    };
 }

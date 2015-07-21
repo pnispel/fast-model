@@ -36,54 +36,68 @@ class Model extends Emitter {
         var changes;
 
         if (lastKey === null) {
-            // changes = diff(parent, value);
+            changes = diff(parent, value);
             parent = value;
         } else {
-            // changes = diff(parent[lastKey], value);
+            changes = diff(parent[lastKey], value);
             parent[lastKey] = value;
         }
 
-        // changes.removed.forEach((function (el) {
-        //     var lastPathIsNum = !isNaN(el.path.slice(-1)[0]);
+        changes.removed.forEach((function (el) {
+            var lastPathIsNum = !isNaN(el.path.slice(-1)[0]);
 
-        //     this.trigger('removed:' +
-        //         keySplits.concat(el.path).join('.'), el);
+            this.trigger('removed:' +
+                keySplits.concat(el.path).join('.'), el);
 
-        //     if (lastPathIsNum) {
-        //         el.key.splice(0,0, el.path.splice(-1));
-        //     }
+            if (lastPathIsNum) {
+                var newPath = el.path.slice(0, el.path.length - 2);
+            }
 
-        //     this.trigger('removed:' +
-        //         keySplits.concat(el.path).join('.'), el);
-        // }).bind(this));
+            this.trigger('removed:' +
+                keySplits.concat(newPath).join('.'), el);
+        }).bind(this));
 
-        // changes.added.forEach((function (el) {
-        //     var lastPathIsNum = !isNaN(el.path.slice(-1)[0]);
+        changes.added.forEach((function (el) {
+            var lastPathIsNum = !isNaN(el.path.slice(-1)[0]);
 
-        //     this.trigger('added:' +
-        //         keySplits.concat(el.path).join('.'), el);
+            this.trigger('added:' +
+                keySplits.concat(el.path).join('.'), el);
 
-        //     if (lastPathIsNum) {
-        //         el.key.splice(0,0, el.path.splice(-1));
-        //     }
+            if (lastPathIsNum) {
+                var newPath = el.path.slice(0, el.path.length - 2);
+            }
 
-        //     this.trigger('added:' +
-        //         keySplits.concat(el.path).join('.'), el);
-        // }).bind(this));
+            this.trigger('added:' +
+                keySplits.concat(newPath).join('.'), el);
+        }).bind(this));
 
-        // changes.changed.forEach((function (el) {
-        //     var lastPathIsNum = !isNaN(el.path.slice(-1)[0]);
+        changes.changed.forEach((function (el) {
+            var lastPathIsNum = !isNaN(el[0].path.slice(-1)[0]);
 
-        //     this.trigger('changed:' +
-        //         keySplits.concat(el.path).join('.'), el);
+            this.trigger('changed:' +
+                keySplits.concat(el[0].path).join('.'), el);
 
-        //     if (lastPathIsNum) {
-        //         el.key.splice(0,0, el.path.splice(-1));
-        //     }
+            if (lastPathIsNum) {
+                var newPath = el[0].path.slice(0, el[0].path.length - 2);
+            }
 
-        //     this.trigger('changed:' +
-        //         keySplits.concat(el.path).join('.'), el);
-        // }).bind(this));
+            this.trigger('changed:' +
+                keySplits.concat(newPath).join('.'), el);
+        }).bind(this));
+
+        changes.moved.forEach((function (el) {
+            var lastPathIsNum = !isNaN(el[0].path.slice(-1)[0]);
+
+            this.trigger('moved:' +
+                keySplits.concat(el[0].path).join('.'), el);
+
+            if (lastPathIsNum) {
+                var newPath = el[0].path.slice(0, el[0].path.length - 2);
+            }
+
+            this.trigger('moved:' +
+                keySplits.concat(newPath).join('.'), el);
+        }).bind(this));
     }
 
     getMutable (key) {

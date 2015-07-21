@@ -47,7 +47,9 @@ function docs () {
 }
 
 function test (done) {
-  var bundler = mochify('./spec/**/*_spec.js', {}).transform(babel);
+  var bundler = mochify('./spec/**/*_spec.js', {
+    node: true
+  }).transform(babel);
 
   bundler.bundle();
 }

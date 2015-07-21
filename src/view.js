@@ -1,5 +1,5 @@
 import * as util from './util';
-import {runDiff} from './diff';
+import {diff} from './diff';
 import u from 'util';
 
 /* -------------------------------------------------------------------------- */
@@ -37,18 +37,18 @@ class View {
         var jsonRep = JSON.parse(JSON.stringify(this._templateJSON));
         interpolateState(jsonRep, this._state);
 
-        var diff = runDiff(this._currentJSONRep, jsonRep);
+        var d = diff(this._currentJSONRep, jsonRep);
 
-        console.log(u.inspect(diff, {showHidden: false, depth: null}), jsonRep);
+        // console.log(u.inspect(d, {showHidden: false, depth: null}), jsonRep);
 
-        renderChanges(this.el, diff);
+        renderChanges(this.el, d);
 
         this._currentJSONRep = jsonRep;
     }
 }
 
-function renderChanges (element, diff) {
-    diff.added.forEach(function (added) {
+function renderChanges (element, d) {
+    d.added.forEach(function (added) {
         var parent = _walkToParent(added.path, element);
         var index = added.path.splice(-1)[0];
         var newElement = _createElement(added.val);
@@ -60,7 +60,7 @@ function renderChanges (element, diff) {
         }
     });
 
-    diff.changed.forEach(function (changed) {
+    d.changed.forEach(function (changed) {
         var parent = _walkToParent(changed.path, element.childNodes);
         var index = changed.path.splice(-1)[0];
 

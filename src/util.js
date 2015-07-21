@@ -57,3 +57,16 @@ export function isArray (arr) {
     return Object.prototype.toString.call(arr) === '[object Array]';
 }
 
+export function hashCode (str) {
+    var hash = 0, i, chr, len;
+
+    if (str.length == 0) return hash;
+
+    for (i = 0, len = str.length; i < len; i++) {
+        chr = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + chr;
+        hash |= 0;
+    }
+
+    return hash;
+};

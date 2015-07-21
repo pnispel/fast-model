@@ -1,9 +1,9 @@
-import {indexOf, filter, isObject, isArray} from '../src/util';
+import {indexOf, filter, isObject, isArray, hashCode} from '../src/util';
 import BiMap from 'bimap';
-import XXH from 'xxhashjs';
+import u from 'util';
 
 function bfs (tree, cb) {
-    var h = XXH(JSON.stringify(tree), 0xABCD).toString(16).toString(16);
+    var h = hashCode(JSON.stringify({root: tree})).toString(16);
 
     var queue = [{
         val: tree,
@@ -46,12 +46,16 @@ function bfs (tree, cb) {
             var val = item.val[key];
             var pathCopy = item.path.slice(0);
             var signature = pathCopy.join('.');
-            var hash = XXH(JSON.stringify(val), 0xABCD).toString(16).toString(16);
+
+            var hashObj = {};
+            hashObj[key] = val;
+
+            var hash = hashCode(JSON.stringify(hashObj)).toString(16);
 
             pathCopy.push(key);
 
             queue.push({
-                path: Object.freeze(pathCopy),
+                path: pathCopy,
                 val: val,
                 signature: signature,
                 hash: hash
@@ -71,61 +75,80 @@ export function diff (oldVal={}, newVal={}) {
     var moved = [];
     var added = [];
 
-    function addChildrenToMap (oldItem, newItem, map) {
-        var oldElKeys, newElKeys;
-        var oldItemPath = oldItem.path.length ? oldItem.path.join('.') : 'root';
-        var newItemPath = newItem.path.length ? newItem.path.join('.') : 'root';
+    function getChildren (item, children) {
+        if (!isObject(item.val)) return;
 
-        map.push(oldItemPath, newItemPath);
-
-        if (!isObject(oldItem.val)) return;
-
-        var keys = Object.keys(oldItem.val);
+        var keys = Object.keys(item.val);
 
         for (var i = 0; i < keys.length; i++) {
             var key = keys[i];
 
-            var oldVal = oldItem.val[key];
-            var newVal = newItem.val[key];
+            var newItem = item.val[key];
+            var newPath = item.path.slice(0);
 
-            var oldPath = oldItem.path.slice(0);
-            var newPath = newItem.path.slice(0);
+            var hashObj = {};
+            hashObj[key] = newItem;
 
-            oldPath.push(key);
+            var hash = hashCode(JSON.stringify(hashObj)).toString(16);
+
             newPath.push(key);
 
-            addChildrenToMap({
-                path: Object.freeze(oldPath),
-                val: oldVal
-            }, {
-                path: Object.freeze(newPath),
-                val: newVal
-            }, map);
-        }
+            var child = {
+                path: newPath,
+                val: newItem,
+                hash: hash
+            };
 
+            children.push(child);
+
+            getChildren(child, children);
+        }
     }
 
-    bfs(newVal, function (el) {
+    var newLevels = bfs(newVal, function (el) {
         signatureHashTable[el.signature] =
             signatureHashTable[el.signature] || [];
 
         signatureHashTable[el.signature].push(el);
     });
 
-    bfs(oldVal, function (oldEl) {
+    var oldLevels = bfs(oldVal, function (oldEl) {
         var sameParentElements = signatureHashTable[oldEl.signature];
         var bestElementMap = new BiMap;
 
+        if (!sameParentElements) return;
+
         for (var i = 0; i < sameParentElements.length; i++) {
             var newEl = sameParentElements[i];
+            var oldElPath = oldEl.path.length ? oldEl.path.join('.') : 'root';
+            var newElPath = newEl.path.length ? newEl.path.join('.') : 'root';
 
             if (oldEl.hash === newEl.hash &&
-                !mapping.key(oldEl.path.join('.'))) {
-                addChildrenToMap(oldEl, newEl, mapping);
+                !mapping.key(oldElPath)) {
 
-                if (oldEl.path.join('.') !== newEl.path.join('.')) {
-                    moved.push([oldEl, newEl]);
+                console.log('mashing hash', oldElPath, newElPath);
+
+                mapping.push(oldElPath, newElPath);
+
+                var oldChildren = [];
+                var newChildren = [];
+
+                getChildren(oldEl, oldChildren);
+                getChildren(newEl, newChildren);
+
+                for (var j = 0; j < oldChildren.length; j++) {
+                    var oldItem = oldChildren[j];
+                    var newItem = newChildren[j];
+
+                    var oldItemPath = oldItem.path.length ? oldItem.path.join('.') : 'root';
+                    var newItemPath = newItem.path.length ? newItem.path.join('.') : 'root';
+
+                    mapping.push(oldItemPath, newItemPath);
                 }
+
+                // if (oldElPath !== newElPath) {
+                //     moved.push([oldEl, newEl]);
+                // }
 
                 break;
             }
@@ -133,36 +156,58 @@ export function diff (oldVal={}, newVal={}) {
     });
 
     bfs(oldVal, function (el) {
-        if (!mapping.key(el.path.join('.'))) {
+        var path = el.path.length ? el.path.join('.') : 'root';
+
+        if (path === 'root') return;
+
+        if (!mapping.key(path)) {
             deleted.push(el);
+
+            var children = [];
+            getChildren(el, children);
+
+            for (var i = 0; i < children.length; i++) {
+                mapping.push(children[i].path.join('.'), children[i].hash);
+            }
         }
     });
 
     bfs(newVal, function (el) {
         var path = el.path.length ? el.path.join('.') : 'root';
+
+        if (path === 'root') return;
+
         if (!mapping.val(path)) {
             added.push(el);
+
+            var children = [];
+            getChildren(el, children);
+
+            for (var i = 0; i < children.length; i++) {
+                mapping.push(children[i].hash, children[i].path.join('.'));
+            }
         }
     });
 
     var replaced = [];
 
-    for (var i = (added.length - 1); i >= 0; i--) {
-        for (var j = (deleted.length - 1); j >= 0; j--) {
-            if (added[i].signature === deleted[j].signature) {
-                var newEl = added.splice(i, 1)[0];
+    for (var i = 0; i < added.length; i++) {
+        for (var j = 0; j < deleted.length; j++) {
+            if (added[i].path.join('.') === deleted[j].path.join('.')) {
+                var newEl = added.splice(i--, 1)[0];
                 var oldEl = deleted.splice(j, 1)[0];
 
                 replaced.push([oldEl, newEl]);
-                i--;
+
+                break;
             }
         }
     }
 
     return {
         added: added,
-        deleted: deleted,
-        replaced: replaced,
+        removed: deleted,
+        changed: replaced,
         moved: moved
     };
 }

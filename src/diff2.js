@@ -1,139 +1,213 @@
-import {indexOf, filter, isObject, isArray} from '../src/util';
+import {indexOf, filter, isObject, isArray, hashCode} from '../src/util';
+import BiMap from 'bimap';
+import u from 'util';
 
-function getPaths (toot, path=[], pathsArr=[]) {
-    var keys = Object.keys(toot);
-    var l = keys.length;
+function bfs (tree, cb) {
+    var h = hashCode(JSON.stringify({root: tree})).toString(16);
 
-    for (var i = 0; i < l; i++) {
-        var key = keys[i];
-        var newPath = path.slice(0).push(key);
+    var queue = [{
+        val: tree,
+        path: [],
+        signature: '',
+        hash: h
+    }];
 
-        if (isObject(toot[key])) {
-            pathsArr.push(newPath);
-
-            pathsArr = getPaths(toot[key], newPath, pathsArr);
-        } else {
-            var valPath = path.slice(0).push(key);
-            pathsArr.push(valPath);
-            pathsArr.push(valPath.slice(0).push(toot[key]));
-        }
-    }
-
-    return pathsArr;
-}
-
-function bfs(root, second) {
-    var paths = getPaths(second);
-    var queue = [{obj: root, path: ''}];
-    var mapping = {};
-    var reverseMapping = {};
-
-    function matchFragment (node1, node2, internalMap, internalReverseMap, match) {
-        if (mapping[node1.path] || reverseMapping[node2.path] ||
-            (node1.path !== node2.path)) return;
-
-        internalMap[node1.path] = node2.path;
-        internalReverseMap[node2.path] = node1.path;
-
-        var node1Children = Object.keys(node1.obj);
-        var node2Children = Object.keys(node2.obj);
-        for (var i = 0; i < node1Children.length; i++) {
-            var newNode1Path = node1.path + node1Children[i];
-
-            var newNode1 = {
-                path: newNode1Path;
-                obj: node1[newNode1Path]
-            };
-        }
-    }
+    var levels = [];
+    var tillNextLevel = 0;
+    var nextLevelBuffer = 0;
+    var level = [];
 
     do {
-        var len = queue.length;
+        var item = queue.shift();
 
-        var queueItem = queue.splice(0,1)[0];
-        var obj = queueItem.obj;
-        var queueItemPath = queueItem.path;
+        cb(item)
 
-        var keys = Object.keys(obj);
+        level.push(item);
 
-        var mapPrimePrime = {};
+        var type = typeof item.val;
+        var keys = [];
 
-        for (var j = 0; j < keys.length; j++) {
-            var key = keys[j];
-            var newObj = obj[key];
-            var newPath = queueItemPath + key + '.';
+        if (((type === 'object' || type === 'function') && !!item.val)) {
+            keys = Object.keys(item.val);
 
-            if (mapping[newPath]) continue;
-
-            for (var i = 0; i < paths.length; i++) {
-                var path = paths[i];
-                var pathKey = path.join('.');
-                var indexOfKey = path.indexOf(key);
-                if (indexOfKey === -1 ||
-                    reverseMapping[pathKey]) continue;
-
-                var mapPrime = {};
-                var mapReversePrime = {};
-
-                var thing = second;
-
-                for (var k = 0; k < path.length; k++) {
-                    thing = thing[path[j]];
-                }
-
-                matchFragment(
-                    queueItem,
-                    {
-                        obj: thing,
-                        path: path
-                    },
-                    mapPrime,
-                    mapReversePrime,
-                    path[indexOfKey]);
-            }
-
-            var type = typeof newObj;
-            if ((type === 'object' || type === 'function') && !!newObj) {
-                queue.push({
-                    path: newPath
-                    obj: newObj});
-            } else {
-                // leaf
-                console.log(newObj);
-            }
+            nextLevelBuffer += keys.length;
         }
-    } while( 0 !== queue.length );
+
+        if (tillNextLevel <= 0) {
+            tillNextLevel = nextLevelBuffer;
+            nextLevelBuffer = 0;
+
+            levels.push(level.slice(0));
+            level.length = 0;
+        }
+
+        for (var i = 0; i < keys.length; i++) {
+            var key = keys[i];
+            var val = item.val[key];
+            var pathCopy = item.path.slice(0);
+            var signature = pathCopy.join('.');
+
+            var hashObj = {};
+            hashObj[key] = val;
+
+            var hash = hashCode(JSON.stringify(hashObj)).toString(16);
+
+            pathCopy.push(key);
+
+            queue.push({
+                path: pathCopy,
+                val: val,
+                signature: signature,
+                hash: hash
+            });
+        }
+
+        tillNextLevel--;
+    } while (queue.length !== 0)
+
+    return levels;
 }
 
+export function diff (oldVal={}, newVal={}) {
+    var signatureHashTable = {};
+    var mapping = new BiMap;
+    var deleted = [];
+    var moved = [];
+    var added = [];
 
-/*
- * change non-leaf nodes to include a '.' at the end
- * leaf nodes in 'added' are the 'changed' nodes
- */
+    function getChildren (item, children) {
+        if (!isObject(item.val)) return;
 
-function findShortestCommonSubstrings (vals) {
-    if (!vals.length) return;
+        var keys = Object.keys(item.val);
 
-    vals.sort(function (a, b) {
-        return (a.length < b.length) ? -1 :
-               (a.length === b.length) ? 0 : 1;
+        for (var i = 0; i < keys.length; i++) {
+            var key = keys[i];
+
+            var newItem = item.val[key];
+            var newPath = item.path.slice(0);
+
+            var hashObj = {};
+            hashObj[key] = newItem;
+
+            var hash = hashCode(JSON.stringify(hashObj)).toString(16);
+
+            newPath.push(key);
+
+            var child = {
+                path: newPath,
+                val: newItem,
+                hash: hash
+            };
+
+            children.push(child);
+
+            getChildren(child, children);
+        }
+    }
+
+    var newLevels = bfs(newVal, function (el) {
+        signatureHashTable[el.signature] =
+            signatureHashTable[el.signature] || [];
+
+        signatureHashTable[el.signature].push(el);
     });
 
-    for (var i = (vals.length - 1); i >= 0; i--) {
-        var regex = new RegExp(vals[i]);
+    var oldLevels = bfs(oldVal, function (oldEl) {
+        var sameParentElements = signatureHashTable[oldEl.signature];
+        var bestElementMap = new BiMap;
 
-        for (var j = i; j < vals.length; j++) {
-            if ((vals[i] !== vals[j]) && regex.test(vals[j])) {
-                vals.splice(j, 1);
-                j--;
+        if (!sameParentElements) return;
+
+        for (var i = 0; i < sameParentElements.length; i++) {
+            var newEl = sameParentElements[i];
+            var oldElPath = oldEl.path.length ? oldEl.path.join('.') : 'root';
+            var newElPath = newEl.path.length ? newEl.path.join('.') : 'root';
+
+            if (oldEl.hash === newEl.hash &&
+                !mapping.key(oldElPath)) {
+
+                console.log('mashing hash', oldElPath, newElPath);
+
+                mapping.push(oldElPath, newElPath);
+
+                var oldChildren = [];
+                var newChildren = [];
+
+                getChildren(oldEl, oldChildren);
+                getChildren(newEl, newChildren);
+
+                for (var j = 0; j < oldChildren.length; j++) {
+                    var oldItem = oldChildren[j];
+                    var newItem = newChildren[j];
+
+                    var oldItemPath = oldItem.path.length ? oldItem.path.join('.') : 'root';
+                    var newItemPath = newItem.path.length ? newItem.path.join('.') : 'root';
+
+                    mapping.push(oldItemPath, newItemPath);
+                }
+
+                if (oldElPath !== newElPath) {
+                    moved.push([oldEl, newEl]);
+                }
+
+                break;
+            }
+        }
+    });
+
+    bfs(oldVal, function (el) {
+        var path = el.path.length ? el.path.join('.') : 'root';
+
+        if (path === 'root') return;
+
+        if (!mapping.key(path)) {
+            deleted.push(el);
+
+            var children = [];
+            getChildren(el, children);
+
+            for (var i = 0; i < children.length; i++) {
+                mapping.push(children[i].path.join('.'), children[i].hash);
+            }
+        }
+    });
+
+    bfs(newVal, function (el) {
+        var path = el.path.length ? el.path.join('.') : 'root';
+
+        if (path === 'root') return;
+
+        if (!mapping.val(path)) {
+            added.push(el);
+
+            var children = [];
+            getChildren(el, children);
+
+            for (var i = 0; i < children.length; i++) {
+                mapping.push(children[i].hash, children[i].path.join('.'));
+            }
+        }
+    });
+
+    var replaced = [];
+
+    for (var i = 0; i < added.length; i++) {
+        for (var j = 0; j < deleted.length; j++) {
+            if (added[i].path.join('.') === deleted[j].path.join('.')) {
+                var newEl = added.splice(i--, 1)[0];
+                var oldEl = deleted.splice(j, 1)[0];
+
+                replaced.push([oldEl, newEl]);
+
+                break;
             }
         }
     }
-}
 
-export function run (one, two) {
-    var ret1 = getPaths(one, '', []);
-    var ret2 = getPaths(two, '', []);
-
-
+    return {
+        added: added,
+        removed: deleted,
+        changed: replaced,
+        moved: moved
+    };
 }

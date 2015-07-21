@@ -11,6 +11,8 @@ import u from 'util';
 var expect = chai.expect;
 var assert = chai.assert;
 
+var dataJSON = JSON.parse(fs.readFileSync('./spec/spec_data/data1.json', 'utf8'));
+
 /*
  * TODO:
  * check values with dots in them (html)
@@ -44,17 +46,41 @@ describe('Diff', function () {
         }
     `;
 
-    let json1, json2;
+    const simpleTemplate = `
+        {
+          "images": [
+            {{#repeat 3 6}}
+            {"name": "img{{index}}.png"}
+            {{/repeat}}
+          ]
+        }
+    `;
+
+    let json1, json2, json3, json4;
 
     beforeEach(function () {
         json1 = JSON.parse(dummyjson.parse(template));
         json2 = JSON.parse(dummyjson.parse(template));
+
+        json3 = JSON.parse(JSON.stringify(dataJSON));
+        json4 = JSON.parse(JSON.stringify(dataJSON));
     });
 
 
     it('it should return empty with same object', function () {
-        console.log(json1, json2);
-        var ret = diff(json1, json2);
+        // var clipAngles = json3.cutupAngles[0].clipAngles;
+        // var totalLength = clipAngles.length;
+
+        // clipAngles.splice(2, 0, {isSpacer: true});
+
+        var json5 = JSON.parse(dummyjson.parse(simpleTemplate));
+        var json6 = JSON.parse(JSON.stringify(json5));
+
+        json6.images.splice(0,0, {name: 'test'});
+
+        var ret = diff(json5, json6);
+
+        console.log(u.inspect(ret, {showHidden: false, depth: null}));
 
         // assert(ret.moved.length === 0 &&
         //        ret.added.length === 0 &&
@@ -85,8 +111,7 @@ describe('Diff', function () {
         // console.log(u.inspect(ret, {showHidden: false, depth: null}));
 
     });
-    // var json = JSON.parse(fs.readFileSync('./spec_data/data1.json', 'utf8'));
-    // var json2 = JSON.parse(JSON.stringify(json));
+
     // json2.cutupAngles[0].clipAngles[0].duration = 100;
     // var data1 = {
     // start: {

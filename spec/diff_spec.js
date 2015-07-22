@@ -70,14 +70,56 @@ describe('Diff', function () {
 
     it('it should return empty with same object', function () {
         var m = new Model();
-        console.log(json3);
+        // console.log(json3);
         m.set(json3);
-        var clipAngles = m.getMutable('cutupAngles.0.clipAngles');
+        // var clipAngles = m.getMutable('cutupAngles.0.clipAngles');
 
-        clipAngles.splice(0, 1);
+        // clipAngles.forEach(function (ca) {
+        //     ca.id = Math.random();
+
+        //     if (!ca.files) return;
+
+        //     ca.files.forEach(function (f) {
+        //         f.id = Math.random();
+        //     });
+        // });
+
+        // clipAngles.splice(0, 1);
+        // added
+        // clipAngles.splice(0, 0, {isSpacer: true});
+
+        function combine () {
+            var clipAngles = m.getMutable('cutupAngles.0.clipAngles');
+            var first = clipAngles[0];
+            var second = clipAngles[1];
+
+            console.log(first, second);
+
+            var firstFiles = first.files;
+            var nextFiles = second.files;
+
+            var duration = first.duration + second.duration;
+
+            second.duration = duration;
+
+            // if we combine in reverse order - we want the 'next' videos clips first
+
+            second.files = firstFiles.concat(nextFiles);
+
+
+            second.isModified = true;
+
+            clipAngles.splice(0,1);
+
+            m.set('cutupAngles.0.clipAngles', clipAngles);
+        }
+
+
+
+        combine();
 
         console.log('bef');
-        m.set('cutupAngles.0.clipAngles', clipAngles);
+        // m.set('cutupAngles.0.clipAngles', clipAngles);
 
         // var json5 = JSON.parse(dummyjson.parse(simpleTemplate));
         // var json6 = JSON.parse(JSON.stringify(json5));
@@ -109,7 +151,7 @@ describe('Diff', function () {
         // json6.bing = "bang";
 
         // var start = now();
-        // var ret = diff(json3.cutupAngles[0].clipAngles, clipAngles);
+        // var ret = diff(json5, json6);
         // var end = now();
         // console.log(end - start);
 

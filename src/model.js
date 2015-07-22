@@ -44,26 +44,25 @@ class Model extends Emitter {
             parent[lastKey] = value;
         }
 
-        console.log(script);
+        console.log(JSON.stringify(script, null, 2));
+        // for (var i = 0; i < script.length; i++) {
+        //     var el = script[i];
+        //     var method = el[0];
+        //     var xtraArguments = Array.prototype.slice.call(el, 1);
+        //     var path = el[1].path;
+        //     var hasLength = (keySplitsClone.concat(path).length > 1);
+        //     var paths = [keySplitsClone.concat(path)];
 
-        for (var i = 0; i < script.length; i++) {
-            var el = script[i];
-            var method = el[0];
-            var xtraArguments = Array.prototype.slice.call(el, 1);
-            var path = el[1].path;
-            var hasLength = (keySplitsClone.concat(path).length > 1);
-            var paths = [keySplitsClone.concat(path)];
+        //     if (hasLength) {
+        //         paths.push(
+        //             keySplitsClone.concat(path.slice(0, path.length - 1)));
+        //     }
 
-            if (hasLength) {
-                paths.push(
-                    keySplitsClone.concat(path.slice(0, path.length - 1)));
-            }
-
-            for (var j = 0; j < paths.length; j++) {
-                console.log(method + ':' + paths[j].join('.'));
-                this.trigger(method + ':' + paths[j].join('.'), xtraArguments);
-            }
-        };
+        //     for (var j = 0; j < paths.length; j++) {
+        //         // console.log(method + ':' + paths[j].join('.'));
+        //         this.trigger(method + ':' + paths[j].join('.'), xtraArguments);
+        //     }
+        // };
     }
 
     getMutable (key) {

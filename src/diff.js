@@ -127,10 +127,14 @@ export function diff (oldVal={}, newVal={}) {
             var newElPath = newEl.path.length ? newEl.path.join('.') : 'root';
 
             if (oldEl.hash === newEl.hash) {
-                console.log('match:', oldElPath, newElPath, oldEl.hash)
-                var match = mapping.key(oldElPath)
+                var match = mapping.key(oldElPath);
                 if (mapping.val(match) === oldElPath) {
                     mapping.removeKey(oldElPath);
+                }
+
+                var match2 = mapping.val(newElPath);
+                if (mapping.key(match2) === newElPath) {
+                    mapping.removeKey(newElPath);
                 }
 
                 mapping.set(oldElPath, newElPath);
@@ -148,9 +152,14 @@ export function diff (oldVal={}, newVal={}) {
                     var oldItemPath = oldItem.path.length ? oldItem.path.join('.') : 'root';
                     var newItemPath = newItem.path.length ? newItem.path.join('.') : 'root';
 
-                    var newMatch = mapping.key(oldItemPath)
+                    var newMatch = mapping.key(oldItemPath);
                     if (mapping.val(match) === oldItemPath) {
                         mapping.removeKey(oldItemPath);
+                    }
+
+                    var newMatch2 = mapping.val(newItemPath);
+                    if (mapping.key(newMatch2) === newItemPath) {
+                        mapping.removeKey(newItemPath);
                     }
                     // mapping.removeVal(newItemPath);
                     mapping.setNull(oldItemPath, newItemPath);
@@ -160,7 +169,7 @@ export function diff (oldVal={}, newVal={}) {
 
                 break;
             } else if (oldElPath === newElPath &&
-                !mapping.key(oldElPath)) {
+                !mapping.key(oldElPath) && !mapping.val(newElPath)) {
 
                 if (!isObject(oldEl.val) ||
                     !isObject(newEl.val)) continue;
@@ -170,7 +179,7 @@ export function diff (oldVal={}, newVal={}) {
         }
     });
 
-console.log(mapping);
+// console.log(mapping);
 
     bfs(oldVal, function (el) {
         var path = el.path.length ? el.path.join('.') : 'root';
@@ -179,7 +188,7 @@ console.log(mapping);
 
         var match = mapping.key(path);
 
-        if (!mapping.key(path) || (mapping.val(match) !== path)) {
+        if (!mapping.key(path)) {
             script.push(['delete', el]);
 
             var children = [];
@@ -187,6 +196,7 @@ console.log(mapping);
 
             for (var i = 0; i < children.length; i++) {
                 mapping.set(children[i].path.join('.'), children[i].hash);
+                movingBiMap.set(children[i].hash, children[i].path.join('.'));
             }
         }
     });
@@ -210,8 +220,12 @@ console.log(mapping);
             }
         } else if (!movingBiMap.val(path)) { // TODO remove !match
             var oldElPath = mapping.val(path);
+            var oldPathSplits = oldElPath.split('.');
 
-            if (oldElPath !== path) {
+            oldPathSplits.splice(-1);
+
+            if (oldElPath !== path &&
+                oldPathSplits.join('.') === el.signature) {
                 script.push(['move', el, oldElPath]);
 
                 var children = [];

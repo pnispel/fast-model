@@ -10,6 +10,7 @@
     "babel": "^5.5.8",
     "bimap": "0.0.15",
     "es6-weak-map": "^1.0.2",
+    "jsondiffpatch": "^0.1.33",
     "xxhashjs": "^0.1.1"
   },
   "devDependencies": {

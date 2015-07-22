@@ -5,6 +5,7 @@ import dummyjson from 'dummy-json';
 
 import * as util from '../src/util';
 import {diff} from '../src/diff';
+import Model from '../src/model';
 
 import u from 'util';
 
@@ -49,7 +50,7 @@ describe('Diff', function () {
     const simpleTemplate = `
         {
           "images": [
-            {{#repeat 3 6}}
+            {{#repeat 3}}
             {"name": "img{{index}}.png"}
             {{/repeat}}
           ]
@@ -68,19 +69,51 @@ describe('Diff', function () {
 
 
     it('it should return empty with same object', function () {
-        // var clipAngles = json3.cutupAngles[0].clipAngles;
-        // var totalLength = clipAngles.length;
+        var m = new Model();
+        console.log(json3);
+        m.set(json3);
+        var clipAngles = m.getMutable('cutupAngles.0.clipAngles');
 
-        // clipAngles.splice(2, 0, {isSpacer: true});
+        clipAngles.splice(0, 1);
 
-        var json5 = JSON.parse(dummyjson.parse(simpleTemplate));
-        var json6 = JSON.parse(JSON.stringify(json5));
+        console.log('bef');
+        m.set('cutupAngles.0.clipAngles', clipAngles);
 
-        json6.images.splice(0,0, {name: 'test'});
+        // var json5 = JSON.parse(dummyjson.parse(simpleTemplate));
+        // var json6 = JSON.parse(JSON.stringify(json5));
 
-        var ret = diff(json5, json6);
+        // added
+        // json6.images.splice(0,0, {name: 'test'});
 
-        console.log(u.inspect(ret, {showHidden: false, depth: null}));
+        // json6.images[1].name = "test";
+
+        // swap
+        // var spliced = json6.images.splice(1,1)[0];
+        // json6.images.splice(0,0, spliced);
+
+        // delete
+        // json6.images.splice(0,1);
+
+        // move
+        // var buffer = json6.images[0];
+        // json6.images[0] = json6.images[1];
+        // json6.images[1] = json6.images[2];
+        // json6.images[2] = buffer;
+
+        // add two of same element
+        // json6.images.splice(0,0, {name: 'test'});
+        // json6.images.splice(0,0, {name: 'test'});
+
+        // add object
+        // json6.tar = {test: 1, another: 2};
+        // json6.bing = "bang";
+
+        // var start = now();
+        // var ret = diff(json3.cutupAngles[0].clipAngles, clipAngles);
+        // var end = now();
+        // console.log(end - start);
+
+        // console.log(u.inspect(ret, {showHidden: false, depth: null}));
 
         // assert(ret.moved.length === 0 &&
         //        ret.added.length === 0 &&

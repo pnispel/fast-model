@@ -29,75 +29,41 @@ class Model extends Emitter {
         if (!util.isString(key)) return;
 
         var keySplits = key.split('.');
+        var keySplitsClone = keySplits.slice(0);
 
         var lastKey = keySplits[keySplits.length - 1];
         var parent = _walkToParent(keySplits, this._data, createDuringWalk);
 
-        var changes;
+        var script;
 
         if (lastKey === null) {
-            changes = diff(parent, value);
+            script = diff(parent, value);
             parent = value;
         } else {
-            changes = diff(parent[lastKey], value);
+            script = diff(parent[lastKey], value);
             parent[lastKey] = value;
         }
 
-        changes.removed.forEach((function (el) {
-            var lastPathIsNum = !isNaN(el.path.slice(-1)[0]);
+        console.log(script);
 
-            this.trigger('removed:' +
-                keySplits.concat(el.path).join('.'), el);
+        for (var i = 0; i < script.length; i++) {
+            var el = script[i];
+            var method = el[0];
+            var xtraArguments = Array.prototype.slice.call(el, 1);
+            var path = el[1].path;
+            var hasLength = (keySplitsClone.concat(path).length > 1);
+            var paths = [keySplitsClone.concat(path)];
 
-            if (lastPathIsNum) {
-                var newPath = el.path.slice(0, el.path.length - 2);
+            if (hasLength) {
+                paths.push(
+                    keySplitsClone.concat(path.slice(0, path.length - 1)));
             }
 
-            this.trigger('removed:' +
-                keySplits.concat(newPath).join('.'), el);
-        }).bind(this));
-
-        changes.added.forEach((function (el) {
-            var lastPathIsNum = !isNaN(el.path.slice(-1)[0]);
-
-            this.trigger('added:' +
-                keySplits.concat(el.path).join('.'), el);
-
-            if (lastPathIsNum) {
-                var newPath = el.path.slice(0, el.path.length - 2);
+            for (var j = 0; j < paths.length; j++) {
+                console.log(method + ':' + paths[j].join('.'));
+                this.trigger(method + ':' + paths[j].join('.'), xtraArguments);
             }
-
-            this.trigger('added:' +
-                keySplits.concat(newPath).join('.'), el);
-        }).bind(this));
-
-        changes.changed.forEach((function (el) {
-            var lastPathIsNum = !isNaN(el[0].path.slice(-1)[0]);
-
-            this.trigger('changed:' +
-                keySplits.concat(el[0].path).join('.'), el);
-
-            if (lastPathIsNum) {
-                var newPath = el[0].path.slice(0, el[0].path.length - 2);
-            }
-
-            this.trigger('changed:' +
-                keySplits.concat(newPath).join('.'), el);
-        }).bind(this));
-
-        changes.moved.forEach((function (el) {
-            var lastPathIsNum = !isNaN(el[0].path.slice(-1)[0]);
-
-            this.trigger('moved:' +
-                keySplits.concat(el[0].path).join('.'), el);
-
-            if (lastPathIsNum) {
-                var newPath = el[0].path.slice(0, el[0].path.length - 2);
-            }
-
-            this.trigger('moved:' +
-                keySplits.concat(newPath).join('.'), el);
-        }).bind(this));
+        };
     }
 
     getMutable (key) {

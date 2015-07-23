@@ -52,12 +52,7 @@ function bfs (tree, cb) {
                 pathCopy.slice(0, pathCopy.length - 1).join('.') :
                 pathCopy.join('.');
 
-            // var hashObj = {};
-            // hashObj[key] = val;
-
             var hash = hashCode(JSON.stringify(val)).toString(16);
-
-            // console.log(hash, pathCopy.join('.'));
 
             queue.push({
                 path: pathCopy,
@@ -161,7 +156,7 @@ export function diff (oldVal={}, newVal={}) {
                     if (mapping.key(newMatch2) === newItemPath) {
                         mapping.removeKey(newItemPath);
                     }
-                    // mapping.removeVal(newItemPath);
+
                     mapping.setNull(oldItemPath, newItemPath);
                 }
 
@@ -178,8 +173,6 @@ export function diff (oldVal={}, newVal={}) {
             }
         }
     });
-
-// console.log(mapping);
 
     bfs(oldVal, function (el) {
         var path = el.path.length ? el.path.join('.') : 'root';

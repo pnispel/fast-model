@@ -1,2 +1,2 @@
-# large_file_uploads
-fault taulerant large file uploads
+# fast_model
+a simple model for to be used with react+flux
